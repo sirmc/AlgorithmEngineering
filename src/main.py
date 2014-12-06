@@ -3,6 +3,7 @@ import sys
 from math import sqrt
 from graph_tool.all import *
 from numpy import *
+from itertools import permutations
 
 
 def euclidean_steiner_tree(g):
@@ -20,6 +21,56 @@ def get_positions(g):
         pos[v] = coord[0][i]
     return pos
 
+def find_triangles(g):
+    for v1 in g.vertices():
+        neighbors = list(v1.out_neighbours())
+        if len(neighbors) > 1:
+            for pe in permutations(neighbors,2):
+                yield (v1,) + pe
+
+
+def improve(g):
+    g_best = g.copy()
+    triangles = find_triangles(g)
+    #(a,b,c) = next(triangles, None)
+    for (a,b,c) in triangles:
+        a_pos = g.vertex_properties["position"][a]
+        b_pos = g.vertex_properties["position"][b]
+        c_pos = g.vertex_properties["position"][c]
+        v_pos = tuple(map(lambda a: 1/3*sum(a),zip(a_pos,b_pos,c_pos)))
+
+        g2 = Graph(g=g.copy(), prune=True)
+        v = g2.add_vertex()
+        g2.vertex_properties["position"][v] = v_pos
+
+        # Add new edges
+        te1 = g2.add_edge(a,v)
+        set_edge_weight(te1,g2)
+
+        te2 = g2.add_edge(b,v)
+        set_edge_weight(te2,g2)
+
+        te3 = g2.add_edge(c,v)
+        set_edge_weight(te3,g2)
+        
+        # Remove old edges
+        e1 = g2.edge(a,b)
+        e2 = g2.edge(a,c)
+        g2.remove_edge(e1)
+        g2.remove_edge(e2)
+
+        if total_weight(g2) < total_weight(g_best):
+            g_best = g2
+    return g_best
+
+
+def set_edge_weight(e, g):
+    v1 = g.vertex_properties["position"][e.source()]
+    v2 = g.vertex_properties["position"][e.target()]
+    g.edge_properties["weights"][e] = sqrt((v1[0] - v2[0])**2 + (v1[1] - v2[1]) ** 2)
+
+def total_weight(g):
+    return sum([g.edge_properties["weights"][e] for e in g.edges()])
 
 def start():
 
@@ -32,28 +83,22 @@ def start():
 
     g = read_input(input_file, output_file)
 
-
-    weights = g.new_edge_property("double")
-    g.edge_properties["weights"] = weights
-
-
-    for i in g.vertices():
-        for j in g.vertices():
-            if not i == j:
-                v1 = g.vertex_properties["position"][i]
-                v2 = g.vertex_properties["position"][j]
-                weight = sqrt((v1[0] - v2[0])**2 + (v1[1] - v2[1]) ** 2)
-                e = g.add_edge(i, j)
-                g.edge_properties["weights"][e] = weight
-
     tree = min_spanning_tree(g, weights=g.edge_properties["weights"])
     g.set_edge_filter(tree)
+
 
     for e in g.edges():
         print("%s - (%f)" %(e, g.edge_properties["weights"][e]))
 
-
+    print("Total weight: %f" % total_weight(g))
     graph_draw(g, vertex_text=g.vertex_index, pos=g.vertex_properties["position"], output_size=(800, 800), output="out.png")
+
+    g2 = g.copy()
+    for i in range(10):
+        g2 = improve(g2)
+        print("Total weight: %f" % total_weight(g2))
+        graph_draw(g2, vertex_text=g2.vertex_index, pos=g2.vertex_properties["position"], output_size=(800, 800), output="out2.png")
+
 
 
 
@@ -75,6 +120,17 @@ def read_input(input_file, output_file):
             elif "eof" in line.lower():
                 break
             line = fp.readline()
+
+    weights = g.new_edge_property("double")
+    g.edge_properties["weights"] = weights
+    for i in g.vertices():
+        for j in g.vertices():
+            if not i == j:
+                v1 = g.vertex_properties["position"][i]
+                v2 = g.vertex_properties["position"][j]
+                weight = sqrt((v1[0] - v2[0])**2 + (v1[1] - v2[1]) ** 2)
+                e = g.add_edge(i, j)
+                g.edge_properties["weights"][e] = weight
 
     return g
 
