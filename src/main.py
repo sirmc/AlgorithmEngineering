@@ -84,8 +84,8 @@ def start():
 
     output_file.write("SECTION Solutions\n")
 
-    current_total_weight = total_weight(g)
-    print_solution(start_time, current_total_weight, output_file)
+    mst_total_weight = current_total_weight = total_weight(g)
+    print_solution(start_time, current_total_weight, output_file, mst_total_weight)
     plot_graph(g, "out1.png")
 
     """ Improve solution """
@@ -96,7 +96,7 @@ def start():
         new_total_weight = total_weight(g2)
         optimum_found = (new_total_weight == current_total_weight)
         current_total_weight = new_total_weight
-        print_solution(start_time, current_total_weight, output_file)
+        print_solution(start_time, current_total_weight, output_file, mst_total_weight)
     output_file.write("End\n\n")
     plot_graph(g2, "out2.png")
 
@@ -123,10 +123,10 @@ def print_run_section(output_file, start_time, best_solution):
                         "Primal %.6f\n"
                         "End\n\n" % (time.time() - start_time, best_solution))
 
-def print_solution(start_time, quality, output_file):
-    output = "Solution %.2f %.6f\n" % (time.time() - start_time, quality)
-    print(output, end="")
-    output_file.write(output)
+def print_solution(start_time, quality, output_file, mst_total_weight):
+    output = "Solution %.2fs %.6f" % (time.time() - start_time, quality)
+    print(output + " (%.5fx best)" % (quality / (mst_total_weight / 1.1547)))
+    output_file.write(output + "\n")
 
 def plot_graph(g, name):
     graph_draw(g,
@@ -155,12 +155,7 @@ def make_graph_complete(g):
     for i in g.vertices():
         for j in g.vertices():
             if not i == j:
-                v1 = g.vertex_properties["position"][i]
-                v2 = g.vertex_properties["position"][j]
-                weight = sqrt((v1[0] - v2[0])**2 + (v1[1] - v2[1]) ** 2)
-                e = g.add_edge(i, j)
-                g.edge_properties["weights"][e] = weight
-
+                add_edge(g, i, j)
 
 def create_graph():
     g = Graph(directed=False)
