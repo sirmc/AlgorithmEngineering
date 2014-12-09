@@ -24,38 +24,59 @@ def get_positions(g):
 
 def find_triangles(g):
     for v1 in g.vertices():
-        neighbors = list(v1.out_neighbours())
-        if len(neighbors) > 1:
-            for pe in permutations(neighbors,2):
+        neighbours = list(v1.out_neighbours())
+        if len(neighbours) > 1:
+            for pe in permutations(neighbours,2):
                 yield (v1,) + pe
 
+def find_n_recursive(g, n, v, visited, results):
+    if n == 0:
+        results.append(visited.copy)
+
+    for v in g.vertices():
+        if not v in visited:
+            neighbours = list(v.out_neighbours())
+            for neighbour in neighbours:
+                visited_copy = visited.copy()
+                visited_copy.add(neighbour)
+                find_n_recursive(g, n-1, neighbour, visited_copy, results)
+
+
+def find_n(g, n):
+    results = list()
+    for v in g.vertices():
+         find_n_recursive(g, n, v, set(), results)
+    return results
 
 def improve_solution(g):
     g_best = g.copy()
     triangles = find_triangles(g)
-    #(a,b,c) = next(triangles, None)
     for (a,b,c) in triangles:
-        a_pos = g.vertex_properties["position"][a]
-        b_pos = g.vertex_properties["position"][b]
-        c_pos = g.vertex_properties["position"][c]
-        v_pos = tuple(map(lambda a: 1/3*sum(a),zip(a_pos,b_pos,c_pos)))
-
-        g2 = Graph(g=g.copy(), prune=True)
-        v = g2.add_vertex()
-        g2.vertex_properties["position"][v] = v_pos
-
-        # Add new edges
-        add_edge(g2, a, v)
-        add_edge(g2, b, v)
-        add_edge(g2, c, v)
-
-        # Remove old edges
-        g2.remove_edge(g2.edge(a, b))
-        g2.remove_edge(g2.edge(a, c))
-
+        g2 = improve_triangle(g, a, b, c)
         if total_weight(g2) < total_weight(g_best):
             g_best = g2
+
     return g_best
+
+def improve_triangle(g, a, b, c):
+    a_pos = g.vertex_properties["position"][a]
+    b_pos = g.vertex_properties["position"][b]
+    c_pos = g.vertex_properties["position"][c]
+    v_pos = tuple(map(lambda a: 1/3*sum(a),zip(a_pos,b_pos,c_pos)))
+
+    g2 = Graph(g=g.copy(), prune=True)
+    v = g2.add_vertex()
+    g2.vertex_properties["position"][v] = v_pos
+
+    # Add new edges
+    add_edge(g2, a, v)
+    add_edge(g2, b, v)
+    add_edge(g2, c, v)
+
+    # Remove old edges
+    g2.remove_edge(g2.edge(a, b))
+    g2.remove_edge(g2.edge(a, c))
+    return g2
 
 def add_edge(g, start, end):
     e = g.add_edge(start, end)
@@ -89,6 +110,10 @@ def start():
     plot_graph(g, "out1.png")
 
     """ Improve solution """
+
+    find_n(g, 4)
+
+
     g2 = g.copy()
     optimum_found = False
     while (time.time() - start_time < max_time and not optimum_found):
