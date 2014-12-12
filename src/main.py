@@ -76,8 +76,9 @@ def basinhop(g):
     for v in base_state:
         v[0] = random.random()
         v[1] = random.random()
-    a = optimize.basinhopping(eval_basinstate, base_state, minimizer_kwargs={"args":(g,)}, niter=10)
+    a = optimize.basinhopping(eval_basinstate, base_state, minimizer_kwargs={"args":(g,)}, niter=3)
 
+    print_basin(a["x"], g)
     print(a)
 
 def eval_basinstate(state, g):
@@ -94,6 +95,24 @@ def eval_basinstate(state, g):
     g2.set_edge_filter(tree)
     weight = total_weight(g2)
 
+    print("Total weight: %.5f" % weight)
+    return weight
+
+def print_basin(state, g):
+    g2 = g.copy()
+    g2.clear_filters()
+    for i in range(0, len(state) - 1, 2):
+        x = state[i]
+        y = state[i+1]
+        v = g2.add_vertex()
+        g2.vertex_properties["position"][v] = (x, y)
+
+    make_graph_complete(g2)
+    tree = min_spanning_tree(g2, weights=g2.edge_properties["weights"])
+    g2.set_edge_filter(tree)
+    weight = total_weight(g2)
+
+    plot_graph(g2, "basin.png")
     print("Total weight: %.5f" % weight)
     return weight
 
