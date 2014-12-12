@@ -1,9 +1,12 @@
 #!/usr/bin/env python3.4
 import sys
 import time
+import random
+
 from math import sqrt
 from graph_tool.all import *
 from numpy import *
+from scipy import optimize
 from itertools import permutations
 
 
@@ -33,7 +36,6 @@ def find_triangles(g):
 def improve_solution(g):
     g_best = g.copy()
     triangles = find_triangles(g)
-    #(a,b,c) = next(triangles, None)
     for (a,b,c) in triangles:
         a_pos = g.vertex_properties["position"][a]
         b_pos = g.vertex_properties["position"][b]
@@ -67,6 +69,36 @@ def add_edge(g, start, end):
 def total_weight(g):
     return sum([g.edge_properties["weights"][e] for e in g.edges()])
 
+def basinhop(g):
+
+    n = g.num_vertices() - 2
+    base_state = empty((n, 2))
+    for v in base_state:
+        v[0] = random.random()
+        v[1] = random.random()
+    a = optimize.basinhopping(eval_basinstate, base_state, minimizer_kwargs={"args":(g,)}, niter=10)
+
+    print(a)
+
+def eval_basinstate(state, g):
+    g2 = g.copy()
+    g2.clear_filters()
+    for i in range(0, len(state) - 1, 2):
+        x = state[i]
+        y = state[i+1]
+        v = g2.add_vertex()
+        g2.vertex_properties["position"][v] = (x, y)
+
+    make_graph_complete(g2)
+    tree = min_spanning_tree(g2, weights=g2.edge_properties["weights"])
+    g2.set_edge_filter(tree)
+    weight = total_weight(g2)
+
+    print("Total weight: %.5f" % weight)
+    return weight
+
+
+
 def start():
     input_file = sys.argv[1]
     max_time = int(float(sys.argv[2]))
@@ -89,19 +121,21 @@ def start():
     plot_graph(g, "out1.png")
 
     """ Improve solution """
-    g2 = g.copy()
-    optimum_found = False
-    while (time.time() - start_time < max_time and not optimum_found):
-        g2 = improve_solution(g2)
-        new_total_weight = total_weight(g2)
-        optimum_found = (new_total_weight == current_total_weight)
-        current_total_weight = new_total_weight
-        print_solution(start_time, current_total_weight, output_file, mst_total_weight)
-    output_file.write("End\n\n")
-    plot_graph(g2, "out2.png")
+    #g2 = g.copy()
+    #optimum_found = False
+    #while (time.time() - start_time < max_time and not optimum_found):
+    #    g2 = improve_solution(g2)
+    #    new_total_weight = total_weight(g2)
+    #    optimum_found = (new_total_weight == current_total_weight)
+    #    current_total_weight = new_total_weight
+    #    print_solution(start_time, current_total_weight, output_file, mst_total_weight)
+    #output_file.write("End\n\n")
+    #plot_graph(g2, "out2.png")
 
-    print_run_section(output_file, start_time, current_total_weight)
-    print_final_solution_section(output_file, g2)
+    #print_run_section(output_file, start_time, current_total_weight)
+    #print_final_solution_section(output_file, g2)
+
+    basinhop(g)
 
 def print_final_solution_section(output_file, g):
     output_file.write(  "SECTION Finalsolution\n"
