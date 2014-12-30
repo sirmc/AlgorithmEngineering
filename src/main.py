@@ -31,21 +31,21 @@ def find_triangles(g):
 
 def find_n_recursive(g, n, v, visited, results):
     if n == 0:
-        results.append(visited.copy)
+        results.append(visited.copy())
+        return results
 
-    for v in g.vertices():
-        if not v in visited:
-            neighbours = list(v.out_neighbours())
-            for neighbour in neighbours:
-                visited_copy = visited.copy()
-                visited_copy.add(neighbour)
-                find_n_recursive(g, n-1, neighbour, visited_copy, results)
+    neighbours = list(v.out_neighbours())
+    for neighbour in neighbours:
+        if neighbour not in visited:
+            visited_copy = visited.copy()
+            visited_copy.append(neighbour)
+            find_n_recursive(g, n-1, neighbour, visited_copy, results)
 
 
 def find_n(g, n):
     results = list()
     for v in g.vertices():
-         find_n_recursive(g, n, v, set(), results)
+         find_n_recursive(g, n, v, list(), results)
     return results
 
 def improve_solution(g):
@@ -53,6 +53,16 @@ def improve_solution(g):
     triangles = find_triangles(g)
     for (a,b,c) in triangles:
         g2 = improve_triangle(g, a, b, c)
+        if total_weight(g2) < total_weight(g_best):
+            g_best = g2
+
+    return g_best
+
+def improve_n_solution(g,n):
+    g_best = g.copy()
+    n_list = find_n(g,n)
+    for list in n_list:
+        g2 = improve_n(g, list, n)
         if total_weight(g2) < total_weight(g_best):
             g_best = g2
 
@@ -76,6 +86,26 @@ def improve_triangle(g, a, b, c):
     # Remove old edges
     g2.remove_edge(g2.edge(a, b))
     g2.remove_edge(g2.edge(a, c))
+    return g2
+
+def improve_n(g, vertices, n):
+    positions = []
+    for v in vertices:
+        positions.append(g.vertex_properties["position"][v])
+
+    v_pos = tuple(map(lambda a: 1/n*sum(a),zip(*positions)))
+
+    g2 = Graph(g=g.copy(), prune=True)
+    v = g2.add_vertex()
+    g2.vertex_properties["position"][v] = v_pos
+
+    # Add new edges
+    for vertex in vertices:
+        add_edge(g2,vertex,v)
+
+    # Remove old edges
+    for n in range(n-1):
+        g2.remove_edge(g2.edge(vertices[n],vertices[n+1]))
     return g2
 
 def add_edge(g, start, end):
@@ -111,17 +141,26 @@ def start():
 
     """ Improve solution """
 
-    find_n(g, 4)
+
 
 
     g2 = g.copy()
     optimum_found = False
     while (time.time() - start_time < max_time and not optimum_found):
-        g2 = improve_solution(g2)
+        g2 = improve_n_solution(g2,4)
         new_total_weight = total_weight(g2)
         optimum_found = (new_total_weight == current_total_weight)
         current_total_weight = new_total_weight
         print_solution(start_time, current_total_weight, output_file, mst_total_weight)
+
+    optimum_found = False
+    while (time.time() - start_time < max_time and not optimum_found):
+        g2 = improve_n_solution(g2,3)
+        new_total_weight = total_weight(g2)
+        optimum_found = (new_total_weight == current_total_weight)
+        current_total_weight = new_total_weight
+        print_solution(start_time, current_total_weight, output_file, mst_total_weight)
+
     output_file.write("End\n\n")
     plot_graph(g2, "out2.png")
 
