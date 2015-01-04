@@ -8,14 +8,13 @@ Remark  "Converted automatically, problem 0/14."
 END
 
 SECTION Graph
-Nodes 4
+Nodes 3
 END
 
 SECTION Coordinates
-DD 1 .25 .25
-DD 2 .25 .75
-DD 3 .75 .25
-DD 4 .75 .75
+DD 1 .2 .2
+DD 2 .5 .8
+DD 3 .8 .2
 END
 
 EOF

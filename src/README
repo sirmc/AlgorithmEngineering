@@ -1,0 +1,14 @@
+Requirements:
+    Python 3.4
+    graph-tool (http://graph-tool.skewed.de/download)
+
+Usage: 
+    python3.4 main.py filename time threads outputfile
+
+
+Set the constant OUTPUT_FIGURES to 'True' to generate graphic output.
+
+Authors:
+    Jelmer Mulder
+    Sebastian Österlund
+    Yoran Sturkenboom

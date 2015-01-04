@@ -9,21 +9,9 @@ from numpy import *
 from scipy import optimize
 from itertools import permutations
 
+OUTPUT_FIGURES = False
+MST_APPROX_FACTOR = 2 / sqrt(3)
 
-def euclidean_steiner_tree(g):
-    tree = min_spanning_tree(g)
-    g.set_edge_filter(tree)
-    return g
-
-
-def get_positions(g):
-    x = g.vertex_properties["x"].get_array()
-    y = g.vertex_properties["y"].get_array()
-    coord = dstack((x, y))
-    pos = g.new_vertex_property("vector<double>")
-    for i, v in enumerate(g.vertices()):
-        pos[v] = coord[0][i]
-    return pos
 
 def find_triangles(g):
     for v1 in g.vertices():
@@ -69,19 +57,19 @@ def add_edge(g, start, end):
 def total_weight(g):
     return sum([g.edge_properties["weights"][e] for e in g.edges()])
 
-def basinhop(g):
+def basinhop(g, base_weight):
 
-    n = g.num_vertices() - 2
+    n = g.num_vertices() - 2 if g.num_vertices() > 2 else 1
+    n = 1
     base_state = empty((n, 2))
     for v in base_state:
         v[0] = random.random()
         v[1] = random.random()
-    a = optimize.basinhopping(eval_basinstate, base_state, minimizer_kwargs={"args":(g,)}, niter=3)
+    a = optimize.basinhopping(eval_basinstate, base_state, minimizer_kwargs={"args":(g, base_weight)}, niter=3)
 
-    print_basin(a["x"], g)
-    print(a)
+    return print_basin(a["x"], g, base_weight)
 
-def eval_basinstate(state, g):
+def eval_basinstate(state, g, base_weight):
     g2 = g.copy()
     g2.clear_filters()
     for i in range(0, len(state) - 1, 2):
@@ -95,10 +83,10 @@ def eval_basinstate(state, g):
     g2.set_edge_filter(tree)
     weight = total_weight(g2)
 
-    print("Total weight: %.5f" % weight)
+    print("Total weight: %.5f (%.5fx best)" % (weight, (weight / (base_weight / MST_APPROX_FACTOR))))
     return weight
 
-def print_basin(state, g):
+def print_basin(state, g, base_weight):
     g2 = g.copy()
     g2.clear_filters()
     for i in range(0, len(state) - 1, 2):
@@ -111,10 +99,8 @@ def print_basin(state, g):
     tree = min_spanning_tree(g2, weights=g2.edge_properties["weights"])
     g2.set_edge_filter(tree)
     weight = total_weight(g2)
-
-    plot_graph(g2, "basin.png")
-    print("Total weight: %.5f" % weight)
-    return weight
+    print("Total weight: %.5f (%.5fx best)" % (weight, (weight / (base_weight / MST_APPROX_FACTOR))))
+    return g2
 
 
 
@@ -137,24 +123,28 @@ def start():
 
     mst_total_weight = current_total_weight = total_weight(g)
     print_solution(start_time, current_total_weight, output_file, mst_total_weight)
-    plot_graph(g, "out1.png")
+    plot_graph(g, "start.png")
+
+    """ Find solution with basin-hopping """
+
+    basin_solution = basinhop(g, mst_total_weight)
+    print_solution(start_time, total_weight(basin_solution), output_file, mst_total_weight)
 
     """ Improve solution """
-    #g2 = g.copy()
-    #optimum_found = False
-    #while (time.time() - start_time < max_time and not optimum_found):
-    #    g2 = improve_solution(g2)
-    #    new_total_weight = total_weight(g2)
-    #    optimum_found = (new_total_weight == current_total_weight)
-    #    current_total_weight = new_total_weight
-    #    print_solution(start_time, current_total_weight, output_file, mst_total_weight)
-    #output_file.write("End\n\n")
-    #plot_graph(g2, "out2.png")
+    g2 = basin_solution.copy()
+    optimum_found = False
+    while (time.time() - start_time < max_time and not optimum_found):
+        g2 = improve_solution(g2)
+        new_total_weight = total_weight(g2)
+        optimum_found = (new_total_weight == current_total_weight)
+        current_total_weight = new_total_weight
+        print_solution(start_time, current_total_weight, output_file, mst_total_weight)
+    output_file.write("End\n\n")
+    plot_graph(g2, "solution.png")
 
-    #print_run_section(output_file, start_time, current_total_weight)
-    #print_final_solution_section(output_file, g2)
+    print_run_section(output_file, start_time, current_total_weight)
+    print_final_solution_section(output_file, g2)
 
-    basinhop(g)
 
 def print_final_solution_section(output_file, g):
     output_file.write(  "SECTION Finalsolution\n"
@@ -178,15 +168,16 @@ def print_run_section(output_file, start_time, best_solution):
 
 def print_solution(start_time, quality, output_file, mst_total_weight):
     output = "Solution %.2fs %.6f" % (time.time() - start_time, quality)
-    print(output + " (%.5fx best)" % (quality / (mst_total_weight / 1.1547)))
+    print(output + " (%.5fx best)" % (quality / (mst_total_weight / MST_APPROX_FACTOR)))
     output_file.write(output + "\n")
 
 def plot_graph(g, name):
-    graph_draw(g,
-            vertex_text=g.vertex_index,
-            pos=g.vertex_properties["position"],
-            output_size=(800, 800),
-            output=name)
+    if OUTPUT_FIGURES:
+        graph_draw(g,
+                vertex_text=g.vertex_index,
+                pos=g.vertex_properties["position"],
+                output_size=(800, 800),
+                output=name)
 
 
 def read_input(g, input_file, output_file):
@@ -244,9 +235,6 @@ def read_coordinates(g, fp):
         id = int(words[1]) - 1
         coordinate = tuple(words[2:4])
         g.vertex_properties["position"][g.vertex(id)] = coordinate
-
-
-
         line = fp.readline()
 
 if __name__ == "__main__":
