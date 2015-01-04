@@ -60,7 +60,6 @@ def total_weight(g):
 def basinhop(g, base_weight):
 
     n = g.num_vertices() - 2 if g.num_vertices() > 2 else 1
-    n = 1
     base_state = empty((n, 2))
     for v in base_state:
         v[0] = random.random()
